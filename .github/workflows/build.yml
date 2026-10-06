@@ -1,0 +1,26 @@
+name: Build BeefTV Frontend
+
+on: [workflow_dispatch]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    
+    steps:
+      - uses: actions/checkout@v4
+      
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      
+      - name: Install and Build
+        working-directory: ./web
+        run: |
+          npm config set registry https://registry.npmmirror.com
+          npm install --legacy-peer-deps
+          npm run build:slim
+      
+      - uses: actions/upload-artifact@v4
+        with:
+          name: beeftv-frontend-dist
+          path: web/dist/
