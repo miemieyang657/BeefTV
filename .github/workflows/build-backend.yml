@@ -1,0 +1,50 @@
+name: Build BeefTV Backend (Linux ARM64)
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - 'backend/**'
+      - '.github/workflows/build-backend.yml'
+
+jobs:
+  build-backend:
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+      
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.22'
+          cache: true
+          cache-dependency-path: backend/go.sum
+      
+      - name: Display Go version
+        run: go version
+      
+      - name: Download dependencies
+        run: |
+          cd backend
+          go mod download
+      
+      - name: Build backend server (Linux ARM64)
+        run: |
+          cd backend
+          CGO_ENABLED=0 GOOS=linux GOARCH=arm64 go build -o beeftv-server-linux-arm64 ./cmd/server
+      
+      - name: Verify binary
+        run: |
+          ls -lh backend/beeftv-server-linux-arm64
+          file backend/beeftv-server-linux-arm64
+      
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: beeftv-backend-linux-arm64
+          path: backend/beeftv-server-linux-arm64
+          retention-days: 30
+          if-no-files-found: error
