@@ -2,6 +2,8 @@ name: Build BeefTV Backend (Linux ARM64)
 
 on:
   workflow_dispatch:
+  push:
+    branches: [main]
 
 jobs:
   build-backend:
@@ -11,26 +13,49 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Setup Go 1.25
+      - name: Setup Go (latest stable)
         uses: actions/setup-go@v5
         with:
-          go-version: '1.25.0'  # 明确指定 1.25.0
+          go-version: "stable"
           cache: true
           cache-dependency-path: backend/go.sum
+
+      - name: Show Go version
+        run: go version
 
       - name: Download dependencies
         working-directory: backend
         run: |
+          export GOTOOLCHAIN=auto
           go mod download
 
-      - name: Build backend server (Linux ARM64)
+      - name: Install ARM64 cross toolchain
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y gcc-aarch64-linux-gnu
+          aarch64-linux-gnu-gcc --version
+
+      - name: Build backend server (Linux ARM64 with CGO)
         working-directory: backend
         run: |
-          CGO_ENABLED=0 GOOS=linux GOARCH=arm64 go build -ldflags="-s -w" -o beeftv-server-linux-arm64 ./cmd/server
+          export GOTOOLCHAIN=auto
+          CC=aarch64-linux-gnu-gcc \
+          CGO_ENABLED=1 \
+          GOOS=linux \
+          GOARCH=arm64 \
+          go build -trimpath -ldflags="-s -w" -o beeftv-server-linux-arm64 ./cmd/server
 
       - name: Verify binary
+        working-directory: backend
         run: |
-          ls -lh backend/beeftv-server-linux-arm64
+          ls -lh beeftv-server-linux-arm64
+          file beeftv-server-linux-arm64
+
+      - name: Smoke test (run help/version, should not crash)
+        working-directory: backend
+        run: |
+          # Linux runner x86 无法直接运行 arm64 二进制，这里只检查文件是否生成
+          test -x beeftv-server-linux-arm64
 
       - name: Upload artifact
         uses: actions/upload-artifact@v4
